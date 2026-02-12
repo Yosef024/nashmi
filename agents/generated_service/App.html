@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دائرة الأحوال المدنية والجوازات - إصدار جواز سفر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8fafc;
+        }
+        .gov-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+        }
+        .step-active {
+            color: #1e3a8a;
+            border-bottom: 3px solid #1e3a8a;
+        }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="bg-blue-900 p-2 rounded-lg">
+                    <i data-lucide="landmark" class="text-white w-8 h-8"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">المملكة الأردنية الهاشمية</h1>
+                    <p class="text-sm text-slate-500">دائرة الأحوال المدنية والجوازات</p>
+                </div>
+            </div>
+            <div class="hidden md:flex items-center gap-6 text-slate-600 font-medium">
+                <a href="#" class="hover:text-blue-900">الرئيسية</a>
+                <a href="#" class="hover:text-blue-900">الخدمات الإلكترونية</a>
+                <a href="#" class="hover:text-blue-900">الأسئلة الشائعة</a>
+                <button class="bg-slate-100 px-4 py-2 rounded-full text-sm">English</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-container" class="flex-grow max-w-4xl mx-auto w-full p-4 md:p-8">
+        <!-- Dynamic Content Injected Here -->
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 mt-12">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <p class="mb-2">© 2023 جميع الحقوق محفوظة لدائرة الأحوال المدنية والجوازات</p>
+            <div class="flex justify-center gap-4 text-sm">
+                <a href="#" class="hover:text-white">سياسة الخصوصية</a>
+                <span>|</span>
+                <a href="#" class="hover:text-white">شروط الاستخدام</a>
+                <span>|</span>
+                <a href="#" class="hover:text-white">اتصل بنا</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * STATE MACHINE LOGIC
+         */
+        const State = {
+            LANDING: 'LANDING',
+            FORM: 'FORM',
+            LOADING: 'LOADING',
+            ELIGIBILITY: 'ELIGIBILITY',
+            PAYMENT: 'PAYMENT',
+            TRACKING: 'TRACKING'
+        };
+
+        let currentState = State.LANDING;
+        let userData = {
+            nationalId: '',
+            fullName: '',
+            dob: '',
+            isEligible: true,
+            errorType: null // 'AGE' or 'SECURITY'
+        };
+
+        const appContainer = document.getElementById('app-container');
+
+        function render() {
+            switch (currentState) {
+                case State.LANDING:
+                    renderLanding();
+                    break;
+                case State.FORM:
+                    renderForm();
+                    break;
+                case State.LOADING:
+                    renderLoading();
+                    break;
+                case State.ELIGIBILITY:
+                    renderEligibility();
+                    break;
+                case State.PAYMENT:
+                    renderPayment();
+                    break;
+                case State.TRACKING:
+                    renderTracking();
+                    break;
+            }
+            lucide.createIcons();
+        }
+
+        // --- View Renders ---
+
+        function renderLanding() {
+            appContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="mb-8 inline-flex p-4 bg-blue-50 rounded-full">
+                        <i data-lucide="file-text" class="w-16 h-16 text-blue-900"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-900 mb-4">خدمة إصدار جواز السفر لأول مرة</h2>
+                    <p class="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
+                        أهلاً بك في البوابة الإلكترونية الموحدة. تتيح لك هذه الخدمة تقديم طلب للحصول على جواز سفر أردني جديد بكل سهولة وأمان.
+                    </p>
+                    <div class="grid md:grid-cols-3 gap-6 mb-12 text-right">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <i data-lucide="clock" class="text-blue-600 mb-3"></i>
+                            <h3 class="font-bold mb-2">مدة الإنجاز</h3>
+                            <p class="text-sm text-slate-500">7 أيام عمل من تاريخ الدفع</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <i data-lucide="credit-card" class="text-blue-600 mb-3"></i>
+                            <h3 class="font-bold mb-2">الرسوم المقررة</h3>
+                            <p class="text-sm text-slate-500">50 دينار أردني</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <i data-lucide="shield-check" class="text-blue-600 mb-3"></i>
+                            <h3 class="font-bold mb-2">المتطلبات</h3>
+                            <p class="text-sm text-slate-500">الرقم الوطني والهوية الشخصية</p>
+                        </div>
+                    </div>
+                    <button onclick="transitionTo(State.FORM)" class="gov-gradient text-white px-10 py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 transition-all">
+                        ابدأ الخدمة الآن
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderForm() {
+            appContainer.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                    <div class="gov-gradient p-6 text-white">
+                        <h2 class="text-xl font-bold">الخطوة 1: التحقق من الهوية</h2>
+                        <p class="opacity-80 text-sm">يرجى إدخال البيانات كما هي في بطاقة الأحوال المدنية</p>
+                    </div>
+                    <form id="passportForm" class="p-8 space-y-6">
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-700">الرقم الوطني</label>
+                                <input type="text" id="nationalId" maxlength="10" placeholder="مثال: 9901023456" 
+                                    class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <p id="idError" class="text-red-600 text-xs hidden">يجب أن يتكون الرقم الوطني من 10 أرقام</p>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-700">الاسم الكامل (بالعربية)</label>
+                                <input type="text" id="fullName" placeholder="الاسم الرباعي" 
+                                    class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <p id="nameError" class="text-red-600 text-xs hidden">يرجى إدخال الاسم الرباعي باللغة العربية فقط</p>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-bold text-slate-700">تاريخ الميلاد</label>
+                                <input type="date" id="dob" 
+                                    class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                                <p id="dobError" class="text-red-600 text-xs hidden">يجب أن يكون العمر أكبر من 10 سنوات</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-blue-50 p-4 rounded-lg flex gap-3 items-start">
+                            <i data-lucide="info" class="text-blue-600 shrink-0"></i>
+                            <p class="text-sm text-blue-800">سيتم التحقق من بياناتك آلياً مع قاعدة بيانات دائرة الأحوال المدنية والجهات الأمنية.</p>
+                        </div>
+
+                        <div class="flex justify-end gap-4 pt-4">
+                            <button type="button" onclick="transitionTo(State.LANDING)" class="px-6 py-3 text-slate-600 font-bold">إلغاء</button>
+                            <button type="submit" class="bg-blue-900 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-800 transition-all">
+                                التحقق من الأهلية
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            document.getElementById('passportForm').addEventListener('submit', handleFormSubmit);
+        }
+
+        function renderLoading() {
+            appContainer.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-xl p-12 text-center border border-slate-200">
+                    <div class="flex justify-center mb-6">
+                        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-900"></div>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-900 mb-2">جاري المعالجة...</h2>
+                    <p class="text-slate-500">نقوم الآن بالتحقق من بياناتك لدى الجهات المختصة</p>
+                    
+                    <div class="mt-8 space-y-4 max-w-md mx-auto">
+                        <div class="h-4 loading-shimmer rounded w-full"></div>
+                        <div class="h-4 loading-shimmer rounded w-5/6 mx-auto"></div>
+                        <div class="h-4 loading-shimmer rounded w-4/6 mx-auto"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEligibility() {
+            if (userData.isEligible) {
+                appContainer.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                        <div class="bg-emerald-600 p-8 text-white text-center">
+                            <div class="inline-flex p-3 bg-white/20 rounded-full mb-4">
+                                <i data-lucide="check-circle" class="w-12 h-12"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold">تم التحقق بنجاح!</h2>
+                            <p class="opacity-90">أنت مؤهل للحصول على جواز سفر أردني</p>
+                        </div>
+                        <div class="p-8">
+                            <div class="bg-slate-50 rounded-xl p-6 mb-8">
+                                <h3 class="font-bold text-slate-700 mb-4 border-b pb-2">ملخص البيانات</h3>
+                                <div class="grid grid-cols-2 gap-y-4 text-sm">
+                                    <span class="text-slate-500">الاسم:</span>
+                                    <span class="font-bold text-slate-900">${userData.fullName}</span>
+                                    <span class="text-slate-500">الرقم الوطني:</span>
+                                    <span class="font-bold text-slate-900">${userData.nationalId}</span>
+                                    <span class="text-slate-500">نوع الخدمة:</span>
+                                    <span class="font-bold text-slate-900">إصدار جواز سفر جديد</span>
+                                </div>
+                            </div>
+                            <button onclick="transitionTo(State.PAYMENT)" class="w-full bg-blue-900 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-blue-800 transition-all">
+                                الانتقال للدفع (50 دينار)
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const errorMsg = userData.errorType === 'AGE' 
+                    ? "عذراً، يجب أن يكون العمر أكبر من 10 سنوات للتقديم عبر هذه الخدمة."
+                    : "يرجى مراجعة الجهات الأمنية المختصة لاستكمال الطلب.";
+                
+                appContainer.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                        <div class="bg-red-700 p-8 text-white text-center">
+                            <div class="inline-flex p-3 bg-white/20 rounded-full mb-4">
+                                <i data-lucide="alert-triangle" class="w-12 h-12"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold">تعذر إكمال الطلب</h2>
+                        </div>
+                        <div class="p-8 text-center">
+                            <p class="text-lg text-slate-700 mb-8">${errorMsg}</p>
+                            <button onclick="transitionTo(State.FORM)" class="bg-slate-100 text-slate-700 px-8 py-3 rounded-lg font-bold hover:bg-slate-200 transition-all">
+                                العودة وتعديل البيانات
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderPayment() {
+            appContainer.innerHTML = `
+                <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                    <div class="p-6 border-b border-slate-100">
+                        <h2 class="text-xl font-bold text-slate-900">بوابة الدفع الإلكتروني</h2>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="flex justify-between items-center bg-blue-50 p-4 rounded-lg">
+                            <span class="text-slate-600">إجمالي المبلغ المستحق:</span>
+                            <span class="text-2xl font-bold text-blue-900">50.00 د.أ</span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <label class="block text-sm font-bold text-slate-700">اختر وسيلة الدفع</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="border-2 border-blue-600 p-4 rounded-xl flex flex-col items-center gap-2 cursor-pointer bg-blue-50">
+                                    <i data-lucide="credit-card" class="text-blue-600"></i>
+                                    <span class="text-xs font-bold">بطاقة ائتمان</span>
+                                </div>
+                                <div class="border-2 border-slate-100 p-4 rounded-xl flex flex-col items-center gap-2 cursor-pointer hover:border-blue-200">
+                                    <i data-lucide="wallet" class="text-slate-400"></i>
+                                    <span class="text-xs font-bold text-slate-500">إي فواتيركم</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <input type="text" placeholder="رقم البطاقة" class="w-full p-3 border border-slate-300 rounded-lg outline-none">
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="text" placeholder="MM/YY" class="w-full p-3 border border-slate-300 rounded-lg outline-none">
+                                <input type="text" placeholder="CVV" class="w-full p-3 border border-slate-300 rounded-lg outline-none">
+                            </div>
+                        </div>
+
+                        <button onclick="handlePayment()" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="lock" class="w-5 h-5"></i>
+                            تأكيد الدفع الآمن
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTracking() {
+            appContainer.innerHTML = `
+                <div class="space-y-8">
+                    <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200">
+                        <div class="flex justify-between items-start mb-8">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-900">حالة الطلب: قيد المعالجة</h2>
+                                <p class="text-slate-500">رقم المرجع: #JO-99283741</p>
+                            </div>
+                            <div class="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-bold">
+                                مدفوع
+                            </div>
+                        </div>
+
+                        <!-- Progress Stepper -->
+                        <div class="relative flex justify-between mb-12">
+                            <div class="absolute top-5 left-0 w-full h-1 bg-slate-100 -z-0"></div>
+                            <div class="absolute top-5 right-0 w-2/3 h-1 bg-blue-600 -z-0"></div>
+                            
+                            <div class="relative z-10 flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 bg-blue-900 text-white rounded-full flex items-center justify-center">
+                                    <i data-lucide="check" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-xs font-bold">تقديم الطلب</span>
+                            </div>
+                            <div class="relative z-10 flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 bg-blue-900 text-white rounded-full flex items-center justify-center">
+                                    <i data-lucide="check" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-xs font-bold">الدفع</span>
+                            </div>
+                            <div class="relative z-10 flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center animate-pulse">
+                                    <i data-lucide="settings" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-xs font-bold text-blue-600">قيد الطباعة</span>
+                            </div>
+                            <div class="relative z-10 flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 bg-slate-200 text-slate-400 rounded-full flex items-center justify-center">
+                                    <i data-lucide="package" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-xs font-bold text-slate-400">جاهز للاستلام</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50 border border-blue-100 rounded-xl p-6 flex items-center gap-6">
+                            <div class="text-center border-l border-blue-200 pl-6">
+                                <div class="text-3xl font-bold text-blue-900">07</div>
+                                <div class="text-xs text-blue-600 uppercase font-bold">أيام متبقية</div>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-blue-900 mb-1">اتفاقية مستوى الخدمة (SLA)</h4>
+                                <p class="text-sm text-blue-700">سيتم إرسال رسالة نصية (SMS) إلى هاتفك المسجل فور جاهزية الجواز للاستلام من فرع (عمان المركزي).</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <button onclick="location.reload()" class="text-slate-500 flex items-center gap-2 hover:text-blue-900 transition-all">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            تحديث حالة الطلب
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Logic Handlers ---
+
+        function transitionTo(newState) {
+            currentState = newState;
+            render();
+            window.scrollTo(0, 0);
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const idInput = document.getElementById('nationalId');
+            const nameInput = document.getElementById('fullName');
+            const dobInput = document.getElementById('dob');
+            
+            let isValid = true;
+
+            // Validation: National ID (10 digits)
+            if (idInput.value.length !== 10 || !/^\d+$/.test(idInput.value)) {
+                document.getElementById('idError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('idError').classList.add('hidden');
+            }
+
+            // Validation: Name (Arabic, min 3 words)
+            const nameParts = nameInput.value.trim().split(/\s+/);
+            const arabicRegex = /^[\u0621-\u064A\s]+$/;
+            if (nameParts.length < 3 || !arabicRegex.test(nameInput.value)) {
+                document.getElementById('nameError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('nameError').classList.add('hidden');
+            }
+
+            // Validation: Age > 10
+            const birthDate = new Date(dobInput.value);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            if (isValid && (isNaN(age) || age < 10)) {
+                document.getElementById('dobError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('dobError').classList.add('hidden');
+            }
+
+            if (isValid) {
+                userData.nationalId = idInput.value;
+                userData.fullName = nameInput.value;
+                userData.dob = dobInput.value;
+                
+                // Mock Logic: If ID starts with '1', simulate security rejection
+                if (userData.nationalId.startsWith('1')) {
+                    userData.isEligible = false;
+                    userData.errorType = 'SECURITY';
+                } else {
+                    userData.isEligible = true;
+                }
+
+                transitionTo(State.LOADING);
+                
+                // Simulate API Call
+                setTimeout(() => {
+                    transitionTo(State.ELIGIBILITY);
+                }, 2000);
+            }
+        }
+
+        function handlePayment() {
+            transitionTo(State.LOADING);
+            // Simulate Payment Gateway
+            setTimeout(() => {
+                transitionTo(State.TRACKING);
+            }, 2500);
+        }
+
+        // Initial Render
+        render();
+    </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "general_information": {
+    "service_name": "إصدار شهادة عدم المحكومية.",
+    "service_description": "وثيقة رسمية تثبت خلو السجل الجنائي للمستفيد من أي أحكام سابقة، وتُقدم للجهات الحكومية والخاصة للتحقق من السيرة العدلية.",
+    "service_category": "وزارة الداخلية.",
+    "providing_entity": "دائرة الأحوال المدنية.",
+    "service_owner_unit": "وحدة الشؤون العامة.",
+    "service_version": "1.0",
+    "service_status": "Draft"
+  },
+  "target_audience": {
+    "target_user_type": "المواطنون.",
+    "eligibility_conditions": [
+      "عدم وجود أسبقيات إجرامية"
+    ],
+    "excluded_users": [
+      "مرتكبو الجرائم"
+    ]
+  },
+  "inputs": [],
+  "service_workflow": [],
+  "outputs": {
+    "output_type": "وثيقة رسمية.",
+    "output_format": "ملف بصيغة PDF.",
+    "delivery_method": "عبر البريد الإلكتروني.",
+    "legal_validity": false
+  },
+  "sla_and_fees": {
+    "processing_time": "عشر دقائق.",
+    "service_fees": "تُقدم الخدمة مجاناً.",
+    "payment_method": "نظام \"إي فواتيركم\".",
+    "refund_policy": "استرداد الرسوم عبر الحساب البنكي."
+  },
+  "integrations": {
+    "requires_external_system": false,
+    "external_systems": [
+      "GSB"
+    ],
+    "integration_type": "واجهة برمجة التطبيقات (API).",
+    "fallback_procedure": "تقديم الطلب يدوياً عبر مراكز الخدمة المعتمدة."
+  },
+  "legal_and_compliance": {
+    "legal_basis": "عذراً، الإجابة المقدمة غير واضحة. يرجى تزويدي بالمرجع القانوني الرسمي (مثل رقم القانون، أو اسم النظام، أو القرار الوزاري) لضمان توثيق المتطلبات بدقة.",
+    "compliance_notes": "قانون العقوبات الأردني.",
+    "data_retention_policy": "عشر سنوات.",
+    "audit_required": false
+  },
+  "operations_and_support": {
+    "support_contact": "رقم الهاتف: 061234567.",
+    "escalation_level": "مدير الدائرة.",
+    "service_availability": "على مدار الساعة (24/7).",
+    "maintenance_window": "صيانة دورية أسبوعية."
+  },
+  "meta": {
+    "created_by": "يوسف الشيخ قاسم",
+    "created_at": "2026-02-10T11:27:20.972434",
+    "last_updated_at": "2026-02-10T11:27:20.972447",
+    "completion_status": "completed"
+  }
+}

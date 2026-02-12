@@ -1,0 +1,62 @@
+{
+  "general_information": {
+    "service_name": "خدمة إصدار جواز السفر.",
+    "service_description": "خدمة تتيح للمواطنين طلب إصدار جواز سفر لأول مرة لتمكينهم من السفر والتنقل خارج المملكة.",
+    "service_category": "قطاع الداخلية.",
+    "providing_entity": "دائرة الأحوال المدنية.",
+    "service_owner_unit": "قسم الجوازات.",
+    "service_version": "1.0",
+    "service_status": "Draft"
+  },
+  "target_audience": {
+    "target_user_type": "المواطنون.",
+    "eligibility_conditions": [
+      "أكبر من 10 سنوات",
+      "غير محكوم بجناية",
+      "أردني الجنسية"
+    ],
+    "excluded_users": [
+      "المحكومون بجنايات"
+    ]
+  },
+  "inputs": [],
+  "service_workflow": [],
+  "outputs": {
+    "output_type": "وثيقة رسمية.",
+    "output_format": "وثيقة ورقية.",
+    "delivery_method": "الاستلام الشخصي.",
+    "legal_validity": false
+  },
+  "sla_and_fees": {
+    "processing_time": "أسبوع عمل واحد.\n\nتم استلام وتوثيق المدة الزمنية المحددة لإنجاز الطلب: أسبوع عمل واحد.",
+    "service_fees": "رسوم الخدمة: 50 ديناراً.",
+    "payment_method": "نظام \"إي فواتيركم\".",
+    "refund_policy": "استرداد فوري للرسوم إلى الحساب البنكي."
+  },
+  "integrations": {
+    "requires_external_system": false,
+    "external_systems": [
+      "GSB"
+    ],
+    "integration_type": "واجهة برمجة التطبيقات (API).",
+    "fallback_procedure": "المراجعة المباشرة لدائرة الأحوال المدنية لإتمام الخدمة يدوياً."
+  },
+  "legal_and_compliance": {
+    "legal_basis": "نظام الجوازات.",
+    "compliance_notes": "اللوائح التنظيمية الخاصة بالجوازات.",
+    "data_retention_policy": "عشر سنوات.",
+    "audit_required": false
+  },
+  "operations_and_support": {
+    "support_contact": "رقم الدعم الفني: 06543216.\nتم استلام وتوثيق بيانات التواصل الخاصة بالدعم الفني بنجاح.",
+    "escalation_level": "مدير فرع دائرة الأحوال المدنية.",
+    "service_availability": "ساعات الدوام الرسمي: من 8:30 صباحاً حتى 3:30 مساءً.",
+    "maintenance_window": "صيانة دورية شهرية."
+  },
+  "meta": {
+    "created_by": "يوسف الشيخ قاسم",
+    "created_at": "2026-02-07T16:32:32.461109",
+    "last_updated_at": "2026-02-07T16:32:32.461158",
+    "completion_status": "completed"
+  }
+}
