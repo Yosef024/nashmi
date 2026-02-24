@@ -1,197 +1,334 @@
-from typing import Dict, Any, List, Optional
 import json
-import google.generativeai as genai
-from prompts import system_prompt
-from prompts import field_contexts
-# ============================================================================
-# الجزء 1: Chat Agent - وكيل المحادثة باستخدام Gemini
-# ============================================================================
+import os
+from typing import Dict, Any, List, Tuple, Optional
+from google import genai
+from prompts import system_prompt, field_contexts, service_intake_form
+
+
+class ValidatorAgent:
+    """وكيل تحقق مرن يقبل الإجابات المنطقية"""
+
+    def __init__(self, api_key: str):
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = "gemini-2.0-flash"
+
+    def validate(self, field_name: str, context: str, user_input: str) -> int:
+        prompt = f"""
+        أنت مدقق بيانات دقيق. قيم إجابة المستخدم التالية:
+        الحقل: {field_name}
+        السياق: {context}
+        إجابة المستخدم: "{user_input}"
+
+        أجب بـ "1" إذا كانت الإجابة مقبولة وتحتوي على معلومة مفيدة ومرتبطة بالسؤال.
+        أجب بـ "0" إذا كانت الإجابة لا علاقة لها بالسؤال وعشوائية تماماً فقط مثل تقثىىلتثىهلى, و حاول تجنب استخدامها اذا ادخل المستخدم اي بيانات مفهومة.
+        الرد يجب أن يكون 0 أو 1 فقط.
+        """
+        response = self.client.models.generate_content(model=self.model_name, contents=prompt)
+        text = response.text.strip()
+        return 1 if "1" in text else 0
+
 
 class ChatAgent:
-    """
-    وكيل المحادثة المسؤول عن التفاعل مع الموظف الحكومي وجمع البيانات
-    يستخدم Gemini 3.0 Flash للمحادثة الذكية
-    """
-
     def __init__(self, service_form: Dict[str, Any], api_key: str):
         self.service_form = service_form
-        self.conversation_history = []
-        self.gathered_data = {}
-
-        # إعداد Gemini
-        genai.configure(api_key=api_key)
-
-        # استخدام Gemini 2.0 Flash (أحدث نموذج متاح)
-        self.model = genai.GenerativeModel('gemini-3-flash-preview')
-
-        # بدء جلسة المحادثة
-        self.chat = self.model.start_chat(history=[])
-
-        # إرسال التعليمات الأولية للنموذج
+        self.api_key = api_key
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = "gemini-2.0-flash"
+        self.validator = ValidatorAgent(api_key)
+        self.chat = self.client.chats.create(model=self.model_name)
+        self.first_question = None  # لتخزين السؤال الأول
         self._initialize_agent()
 
     def _initialize_agent(self):
-        """
-        يرسل التعليمات الأولية لـ Gemini لتهيئته كوكيل جمع متطلبات
-        """
-
+        """تهيئة الوكيل وطرح السؤال الأول"""
+        # إرسال system prompt
         response = self.chat.send_message(system_prompt)
+
+        # طباعة الترحيب في حالة CLI
         print(f"\n🤖 الوكيل: {response.text}\n")
 
-    def get_missing_fields(self) -> List[tuple]:
-        """
-        يحدد الحقول الناقصة في النموذج
-        Returns list of tuples: (section_name, field_name, field_path)
-        """
+        # جلب السؤال الأول مباشرة
+        missing = self.get_missing_fields()
+        if missing:
+            section, field, path = missing[0]
+            self.first_question = self.ask_question(section, field)
+            # طباعة السؤال الأول في حالة CLI
+            print(f"🤖 الوكيل: {self.first_question}\n")
+
+    def get_initial_greeting(self) -> str:
+        """يعيد رسالة الترحيب مع السؤال الأول للواجهة"""
+        greeting = "مرحباً بك! سنبدأ الآن بجمع متطلبات الخدمة خطوة بخطوة."
+        if self.first_question:
+            return f"{greeting}\n\n{self.first_question}"
+        return greeting
+
+    def _get_value_by_path(self, path: str) -> Any:
+        parts = path.split('.')
+        current = self.service_form
+        for part in parts:
+            if isinstance(current, dict):
+                current = current.get(part)
+            else:
+                return None
+        return current
+
+    def get_missing_fields(self) -> List[Tuple[str, str, str]]:
         missing = []
+        # ترتيب الأقسام حسب الأهمية المنطقية
+        section_order = [
+            "general_information",
+            "target_audience",
+            "inputs",
+            "service_workflow",
+            "outputs",
+            "sla_and_fees",
+            "integrations",
+            "legal_and_compliance",
+            "operations_and_support"
+        ]
 
-        def check_section(section_name, section_data, parent_path=""):
-            if isinstance(section_data, dict):
-                for key, value in section_data.items():
-                    current_path = f"{parent_path}.{key}" if parent_path else key
+        def add_if_missing(section: str, field: str, path: str):
+            val = self._get_value_by_path(path)
 
-                    if isinstance(value, dict):
-                        check_section(section_name, value, current_path)
-                    elif isinstance(value, list) and len(value) == 0:
-                        # قوائم فارغة تحتاج بيانات
-                        if key in ["eligibility_conditions", "excluded_users", "external_systems"]:
-                            missing.append((section_name, key, current_path))
-                    elif value is None:
-                        # حقول فارغة
-                        missing.append((section_name, key, current_path))
+            # منطق التخطي (Smart Logic)
+            if field in ["payment_method", "refund_policy"]:
+                fees = str(self._get_value_by_path("sla_and_fees.service_fees") or "").lower()
+                if any(k in fees for k in ["مجاني", "مجانية", "0", "لا يوجد"]):
+                    return
 
-        for section_name, section_data in self.service_form.items():
-            if section_name != "meta":  # نتجاهل قسم Meta لأنه سيتم ملؤه تلقائياً
-                # Pass section_name as the initial parent_path to include it in field_path
-                check_section(section_name, section_data, parent_path=section_name)
+            if field in ["external_systems", "integration_type", "fallback_procedure"]:
+                if not self._get_value_by_path("integrations.requires_external_system"):
+                    return
 
-        print("[DEBUG] Current state of service_form:", json.dumps(self.service_form, ensure_ascii=False, indent=2))
-        print(f"[DEBUG] Missing fields: {missing}")
+            # التحقق من القيمة
+            if val is None or val == "" or (isinstance(val, list) and len(val) == 0):
+                missing.append((section, field, path))
+
+        for section in section_order:
+            section_data = self.service_form.get(section)
+
+            # إذا كان القسم عبارة عن حقل مباشر (مثل inputs أو service_workflow)
+            if section_data is None or isinstance(section_data, (list, str)):
+                if section != "meta":  # تجاهل الميتا
+                    add_if_missing(section, section, section)
+                continue
+
+            # إذا كان القسم قاموساً يحتوي حقولاً فرعية
+            for key in section_data:
+                path = f"{section}.{key}"
+                add_if_missing(section, key, path)
 
         return missing
 
-    def get_field_context(self, section_name: str, field_name: str) -> str:
-        """
-        يوفر سياق وتوضيح لكل حقل لمساعدة Gemini في طرح السؤال المناسب
-        """
+    def ask_question(self, section_name: str, field_name: str) -> str:
+        """يطرح سؤال واحد بطريقة واضحة ومباشرة"""
+        context = field_contexts.get(field_name, field_name)
 
+        # صياغة prompt أفضل للحصول على سؤال واضح
+        prompt = f"""اطرح سؤالاً واحداً واضحاً ومباشراً بالعربية لجمع المعلومة التالية:
 
-        context = field_contexts.get(field_name, f"معلومات عن {field_name}")
-        return f"المطلوب جمع معلومات عن: {field_name} - {context}"
+الحقل المطلوب: {field_name}
+السياق: {context}
 
-    def ask_question(self, section_name: str, field_name: str, field_path: str) -> str:
-        """
-        يطلب من Gemini طرح سؤال للحقل المحدد
-        """
-        context = self.get_field_context(section_name, field_name)
+متطلبات السؤال:
+- يجب أن يكون السؤال واضحاً ومباشراً
+- استخدم لغة مهنية وبسيطة
+- اجعل السؤال قصيراً قدر الإمكان
+- لا تضف أي مقدمات أو شروحات إضافية
+- السؤال فقط بدون أي نص آخر
 
-        prompt = f"""الآن أحتاج أن تسأل الموظف عن المعلومة التالية:
-
-القسم: {section_name}
-الحقل: {field_name}
-التوضيح: {context}
-
-اطرح سؤالاً واضحاً ومباشراً باللغة العربية للحصول على هذه المعلومة.
-السؤال فقط، بدون أي نص إضافي."""
+السؤال:"""
 
         response = self.chat.send_message(prompt)
-        return response.text.strip()
+        question = response.text.strip()
 
-    def process_user_response(self, field_path: str, user_input: str, field_name: str) -> Any:
-        """
-        يستخدم Gemini لمعالجة إجابة المستخدم وتحويلها للصيغة المناسبة
-        """
-        # معالجة الإجابات البوليانية
-        if "legal_validity" in field_path or "audit_required" in field_path or "requires_external_system" in field_path:
-            prompt = f"""قم بتحليل الإجابة التالية وحدد إذا كانت تعني نعم أو لا:
-الإجابة: "{user_input}"
+        # تنظيف السؤال من أي نصوص إضافية
+        question = question.replace("السؤال:", "").replace("**", "").strip()
 
-أجب فقط بكلمة "نعم" أو "لا" بدون أي نص إضافي."""
+        return question
 
-            response = self.chat.send_message(prompt)
-            answer = response.text.strip().lower()
-            return "نعم" in answer or "yes" in answer
+    def process_response(self, path: str, user_input: str) -> Any:
+        """معالجة إجابة المستخدم وتحويلها للصيغة المناسبة"""
+        # 1. معالجة القوائم
+        list_fields = ["eligibility_conditions", "excluded_users", "required_user_information",
+                       "inputs", "service_workflow", "external_systems"]
 
-        # معالجة القوائم
-        elif "eligibility_conditions" in field_path or "excluded_users" in field_path or "external_systems" in field_path:
-            if "لا يوجد" in user_input or user_input.lower() in ["لا", "none", "لايوجد"]:
-                return []
-
-            prompt = f"""قم بتحليل النص التالي واستخرج القائمة كعناصر منفصلة:
+        if any(x in path for x in list_fields):
+            prompt = f"""استخرج قائمة عناصر من النص التالي وأعدها كـ JSON array:
 النص: "{user_input}"
 
-أعد القائمة بصيغة JSON array فقط، مثال: ["عنصر1", "عنصر2"]
-فقط الـ JSON array بدون أي نص إضافي."""
+متطلبات:
+- أعد JSON array فقط بدون أي نص إضافي
+- كل عنصر يجب أن يكون جملة واضحة ومفيدة
+- إذا كان النص يحتوي على عنصر واحد فقط، أعده في array
 
-            response = self.chat.send_message(prompt)
+مثال: ["العنصر الأول", "العنصر الثاني"]
+"""
+            res = self.client.models.generate_content(model=self.model_name, contents=prompt)
             try:
-                # استخراج JSON من الإجابة
-                text = response.text.strip()
-                # إزالة أي markdown code blocks
-                text = text.replace('```json', '').replace('```', '').strip()
-                items = json.loads(text)
-                return items if isinstance(items, list) else [text]
+                data = res.text.strip()
+                # تنظيف الاستجابة
+                data = data.replace('```json', '').replace('```', '').strip()
+                parsed = json.loads(data)
+                return parsed if isinstance(parsed, list) else [parsed]
             except:
-                # في حالة الفشل، نستخدم المعالجة البسيطة
-                items = [item.strip() for item in user_input.replace('،', ',').split(',')]
-                return [item for item in items if item]
+                # fallback: تقسيم بسيط
+                return [i.strip() for i in user_input.split('و') if i.strip()]
 
-        # النصوص العادية - نستخدم Gemini لتنقيح الإجابة
-        else:
-            prompt = f"""قم بتنقيح وتحسين الإجابة التالية لتكون واضحة ومختصرة:
-الإجابة: "{user_input}"
+        # 2. معالجة البوليان
+        if any(x in path for x in ["legal_validity", "audit_required", "requires_external_system"]):
+            user_lower = user_input.lower()
+            return ("نعم" in user_input or "yes" in user_lower or
+                    "صحيح" in user_input or "true" in user_lower)
 
-أعد صياغتها بشكل احترافي ومختصر بدون تغيير المعنى."""
+        # 3. النصوص العادية - تحسين الصياغة
+        prompt = f"""حسّن صياغة النص التالي ليصبح رسمياً ومهنياً مع الحفاظ على المعنى الأصلي:
+النص: "{user_input}"
 
-            response = self.chat.send_message(prompt)
-            return response.text.strip()
+المتطلبات:
+- أعد النص المحسّن فقط بدون أي إضافات
+- احتفظ بجميع المعلومات المهمة
+- استخدم لغة رسمية ومهنية
+- اجعله مختصراً وواضحاً
 
-    def update_service_form(self, field_path: str, value: Any):
-        """
-        يحدث النموذج بالقيمة الجديدة
-        """
-        path_parts = field_path.split('.')
-        current = self.service_form
+النص المحسّن:"""
 
-        for i, part in enumerate(path_parts[:-1]):
-            if part not in current:
-                current[part] = {}  # Ensure intermediate dictionaries exist
-            current = current[part]
+        res = self.client.models.generate_content(model=self.model_name, contents=prompt)
+        improved = res.text.strip()
 
-        current[path_parts[-1]] = value
+        # تنظيف النص
+        improved = improved.replace("النص المحسّن:", "").replace("**", "").strip()
 
-        # Debugging statement to confirm the update
-        print(f"[DEBUG] Updated {field_path} to {value}")
+        return improved
 
-    def chat_turn(self, missing_fields: List[tuple]) -> Optional[tuple]:
-        """
-        دورة محادثة واحدة - يسأل سؤال واحد ويستقبل الإجابة
-        Returns: (section, field, path) إذا كان هناك حقل تم ملؤه، أو None إذا انتهى
-        """
-        if not missing_fields:
-            return None
+    def update_form(self, path: str, value: Any):
+        """تحديث النموذج بالقيمة الجديدة"""
+        parts = path.split('.')
+        curr = self.service_form
+        for p in parts[:-1]:
+            if p not in curr:
+                curr[p] = {}
+            curr = curr[p]
+        curr[parts[-1]] = value
 
-        # اختيار الحقل التالي
+    def get_progress_info(self) -> Dict[str, Any]:
+        """يعيد معلومات عن التقدم الحالي"""
+        total_fields = len(self._get_all_field_paths())
+        missing = len(self.get_missing_fields())
+        completed = total_fields - missing
+
+        return {
+            "total": total_fields,
+            "completed": completed,
+            "remaining": missing,
+            "percentage": int((completed / total_fields) * 100) if total_fields > 0 else 0
+        }
+
+    def _get_all_field_paths(self) -> List[str]:
+        """يعيد جميع مسارات الحقول في النموذج"""
+        paths = []
+        section_order = [
+            "general_information", "target_audience", "inputs", "service_workflow",
+            "outputs", "sla_and_fees", "integrations", "legal_and_compliance",
+            "operations_and_support"
+        ]
+
+        for section in section_order:
+            section_data = self.service_form.get(section)
+            if section_data is None or isinstance(section_data, (list, str)):
+                if section != "meta":
+                    paths.append(section)
+            else:
+                for key in section_data:
+                    paths.append(f"{section}.{key}")
+
+        return paths
+
+    def chat_turn(self, missing_fields: List[Tuple[str, str, str]]):
+        """دورة محادثة واحدة - للاستخدام في CLI"""
         section, field, path = missing_fields[0]
+        question = self.ask_question(section, field)
 
-        # طلب سؤال من Gemini
-        question = self.ask_question(section, field, path)
-        print(f"\n🤖 الوكيل: {question}")
+        while True:
+            print(f"\n🤖 الوكيل: {question}")
+            user_ans = input("👤 أنت: ").strip()
 
-        # استقبال الإجابة
-        user_response = input("👤 أنت: ")
+            if not user_ans:
+                continue
 
-        # معالجة الإجابة باستخدام Gemini
-        processed_value = self.process_user_response(path, user_response, field)
+            if self.validator.validate(field, field_contexts.get(field, ""), user_ans):
+                processed = self.process_response(path, user_ans)
+                self.update_form(path, processed)
+                print(f"✅ تم تسجيل {field}.")
+                break
+            else:
+                print("⚠️ عذراً، الإجابة غير واضحة بما يكفي. يرجى المحاولة مرة أخرى.")
 
-        # تحديث النموذج
-        self.update_service_form(path, processed_value)
+    def process_web_message(self, user_message: str) -> Dict[str, Any]:
+        """
+        معالجة رسالة من واجهة الويب
+        يعيد: dict يحتوي على الاستجابة والحالة
+        """
+        missing = self.get_missing_fields()
 
-        # تأكيد للمستخدم
-        confirmation_prompt = f"""قم بصياغة رسالة تأكيد قصيرة ومهنية تؤكد استلام المعلومة عن {field}.
-الرسالة يجب أن تكون جملة واحدة فقط."""
+        if not missing:
+            return {
+                "status": "completed",
+                "message": "تم جمع جميع المعلومات المطلوبة!",
+                "completed": True
+            }
 
-        confirmation = self.chat.send_message(confirmation_prompt)
-        print(f"✅ {confirmation.text}\n")
+        section, field, path = missing[0]
 
-        return (section, field, path)
+        # التحقق من صحة الإجابة
+        is_valid = self.validator.validate(
+            field,
+            field_contexts.get(field, ""),
+            user_message
+        )
+
+        if not is_valid:
+            return {
+                "status": "invalid",
+                "message": "⚠️ عذراً، الإجابة غير واضحة أو لا تتعلق بالسؤال. يرجى تقديم إجابة أوضح.",
+                "completed": False,
+                "field": field
+            }
+
+        # معالجة وحفظ الإجابة
+        try:
+            processed_value = self.process_response(path, user_message)
+            self.update_form(path, processed_value)
+
+            # التحقق من وجود المزيد من الحقول
+            missing = self.get_missing_fields()
+
+            if not missing:
+                # انتهت جميع الأسئلة
+                progress = self.get_progress_info()
+                return {
+                    "status": "success",
+                    "message": "🎉 رائع! تم جمع جميع المعلومات المطلوبة بنجاح.",
+                    "completed": True,
+                    "progress": progress
+                }
+
+            # طرح السؤال التالي
+            next_section, next_field, next_path = missing[0]
+            next_question = self.ask_question(next_section, next_field)
+            progress = self.get_progress_info()
+
+            return {
+                "status": "success",
+                "message": f"✅ تم تسجيل الإجابة.\n\n{next_question}",
+                "completed": False,
+                "next_field": next_field,
+                "progress": progress
+            }
+
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"حدث خطأ في معالجة الإجابة: {str(e)}",
+                "completed": False
+            }

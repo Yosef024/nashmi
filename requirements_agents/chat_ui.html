@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام جمع متطلبات الخدمات الحكومية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f4f7f6; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 70%; padding: 12px 18px; border-radius: 15px; line-height: 1.6; position: relative; }
+        .bot { background-color: #ffffff; align-self: flex-start; border: 1px solid #ddd; color: #333; }
+        .user { background-color: #007bff; color: white; align-self: flex-end; }
+        .input-area { background: white; padding: 20px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; outline: none; }
+        button { padding: 10px 25px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #218838; }
+        .header { background: #343a40; color: white; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>جمع متطلبات الخدمات الحكومية 🤖</h2>
+    </div>
+    <div class="chat-container" id="chatBox">
+        <div class="message bot">مرحباً بك! أنا مساعدك الذكي. جاري بدء جلسة جمع البيانات...</div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="اكتب ردك هنا..." onkeypress="if(event.key === 'Enter') sendMessage()">
+        <button onclick="sendMessage()">إرسال</button>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const chatBox = document.getElementById('chatBox');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message to UI
+            appendMessage('user', message);
+            input.value = '';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const data = await response.json();
+                appendMessage('bot', data.response);
+
+                if (data.finished) {
+                    appendMessage('bot', "✅ تم الانتهاء من جمع البيانات بنجاح!");
+                }
+            } catch (error) {
+                appendMessage('bot', "❌ حدث خطأ في الاتصال بالخادم.");
+            }
+        }
+
+        function appendMessage(sender, text) {
+            const chatBox = document.getElementById('chatBox');
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.innerText = text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -5,16 +5,16 @@ import google.generativeai as genai
 
 class ServiceBuildingAgent:
     """
-    وكيل بناء الخدمة المسؤول عن كتابة الخدمة بالشكل القياسي
-    يستخدم Gemini لتحسين الوثيقة
+    وكيل بناء الخدمة المسؤول عن كتابة الخدمة بالشكل القياسي.
+    يستخدم Gemini لتحسين الوثيقة ويقوم بحفظها كملفات نصية و JSON.
     """
 
     COUNTER_FILE = "service_counter.txt"  # ملف تخزين العداد
-    service_counter = 0  # عداد تسلصلي للخدمات
+    service_counter = 0  # عداد تسلسلي للخدمات
 
     @classmethod
     def _load_counter(cls):
-        """تحميل قيمة العداد من الملف"""
+        """تحميل قيمة العداد من الملف لضمان استمرارية الترقيم"""
         if os.path.exists(cls.COUNTER_FILE):
             try:
                 with open(cls.COUNTER_FILE, 'r', encoding='utf-8') as f:
@@ -26,49 +26,48 @@ class ServiceBuildingAgent:
 
     @classmethod
     def _save_counter(cls):
-        """حفظ قيمة العداد إلى الملف"""
+        """حفظ قيمة العداد الحالية إلى الملف"""
         with open(cls.COUNTER_FILE, 'w', encoding='utf-8') as f:
             f.write(str(cls.service_counter))
 
     def __init__(self, service_data: Dict[str, Any], api_key: str = None):
-        # تحميل العداد من الملف عند الإنشاء الأول
+        # تحميل العداد عند أول عملية إنشاء
         if ServiceBuildingAgent.service_counter == 0:
             ServiceBuildingAgent._load_counter()
 
         self.service_data = service_data
         self.api_key = api_key
+        self.last_json_path = None  # تخزين مسار آخر ملف JSON تم حفظه
 
         if api_key:
             genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-3-flash-preview')
+            # تم تحديث اسم الموديل للأحدث أو المستخدم لديك
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+
+    def get_json_path(self) -> str:
+        """
+        تعيد المسار المطلق لملف الـ JSON الذي تم إنشاؤه.
+        تستخدم لتمرير المسار إلى الـ Pipeline لاحقاً.
+        """
+        if self.last_json_path:
+            return os.path.abspath(self.last_json_path)
+        return None
 
     def check_service_exists(self, service_name: str) -> bool:
-        """
-        يتحقق من وجود الخدمة في النظام
-        حالياً يرجع False دائماً (سيتم تطويره لاحقاً)
-        """
-        # TODO: تطوير هذه الدالة للتحقق من قاعدة البيانات
+        """يتحقق من وجود الخدمة (يمكن تطويرها للبحث في المجلدات)"""
         return False
 
     def build_service_document(self) -> str:
-        """
-        يبني وثيقة الخدمة بالشكل القياسي
-        """
-        service_name = self.service_data["general_information"]["service_name"]
+        """يبني وثيقة الخدمة بالشكل القياسي"""
+        service_name = self.service_data.get("general_information", {}).get("service_name", "خدمة غير معروفة")
 
-        # التحقق من عدم وجود الخدمة مسبقاً
         if self.check_service_exists(service_name):
             return f"⚠️ تنبيه: الخدمة '{service_name}' موجودة مسبقاً في النظام."
 
-        # بناء الوثيقة القياسية
-        document = self._generate_standard_document()
-
-        return document
+        return self._generate_standard_document()
 
     def _generate_standard_document(self) -> str:
-        """
-        يولد الوثيقة القياسية للخدمة
-        """
+        """يولد النص المنسق للوثيقة القياسية"""
         data = self.service_data
 
         document = f"""
@@ -93,7 +92,6 @@ class ServiceBuildingAgent:
 
 شروط الأهلية:
 """
-        # إضافة شروط الأهلية
         if data['target_audience']['eligibility_conditions']:
             for i, condition in enumerate(data['target_audience']['eligibility_conditions'], 1):
                 document += f"  {i}. {condition}\n"
@@ -165,22 +163,12 @@ class ServiceBuildingAgent:
 
 {'=' * 80}
 """
-
         return document
 
     def enhance_document_with_ai(self, document: str) -> str:
-        """
-        يستخدم Gemini لتحسين صياغة الوثيقة (اختياري)
-        """
-        if not self.api_key:
-            return document
-
-        prompt = f"""قم بمراجعة الوثيقة التالية وتحسين صياغتها مع الحفاظ على البنية والمحتوى:
-
-{document}
-
-أعد الوثيقة بنفس البنية مع تحسين الصياغة فقط."""
-
+        """يستخدم AI لتحسين لغة الوثيقة"""
+        if not self.api_key: return document
+        prompt = f"راجع وحسن صياغة هذه الوثيقة الحكومية مع الحفاظ على التنسيق:\n\n{document}"
         try:
             response = self.model.generate_content(prompt)
             return response.text
@@ -188,26 +176,26 @@ class ServiceBuildingAgent:
             return document
 
     def save_to_file(self, filename: str = None):
-        """
-        يحفظ الوثيقة في ملف
-        """
+        """يحفظ الوثيقة النصية وبيانات الـ JSON ويحدث المسار الأخير"""
         if filename is None:
-            # استخدام العداد التسلسلي لإنشاء اسم الملف
             ServiceBuildingAgent.service_counter += 1
-            # حفظ العداد إلى الملف
             ServiceBuildingAgent._save_counter()
             filename = f"service{ServiceBuildingAgent.service_counter}.txt"
 
-        document = self.build_service_document()
+        # توليد المحتوى النصي
+        document_text = self.build_service_document()
 
+        # حفظ ملف TXT
         with open(filename, 'w', encoding='utf-8') as f:
-            f.write(document)
+            f.write(document_text)
 
-        print(f"\n💾 تم حفظ وثيقة الخدمة في: {filename}")
-
-        # حفظ نسخة JSON أيضاً
+        # حفظ ملف JSON (هذا هو الملف المهم للـ Pipeline)
         json_filename = filename.replace('.txt', '.json')
         with open(json_filename, 'w', encoding='utf-8') as f:
             json.dump(self.service_data, f, ensure_ascii=False, indent=2)
 
-        print(f"💾 تم حفظ البيانات بصيغة JSON في: {json_filename}")
+        # تحديث المسار لاستخدامه عبر get_json_path()
+        self.last_json_path = json_filename
+
+        print(f"\n💾 تم حفظ الوثيقة النصية: {filename}")
+        print(f"💾 تم حفظ بيانات الـ JSON: {json_filename}")

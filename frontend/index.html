@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة نشمي للخدمات الحكومية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .services-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #3b82f6 #f3f4f6;
+        }
+        .services-scroll::-webkit-scrollbar { width: 8px; }
+        .services-scroll::-webkit-scrollbar-thumb { background-color: #3b82f6; border-radius: 20px; }
+
+        /* إضافة أنيميشن بسيط عند التحميل */
+        .loader {
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans">
+
+    <nav class="bg-blue-900 text-white p-6 shadow-xl">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white p-2 rounded-lg">
+                    <i data-lucide="layout-grid" class="text-blue-900"></i>
+                </div>
+                <h1 class="text-2xl font-bold">بوابة نشمي المركزية</h1>
+            </div>
+            <span class="bg-blue-800 px-4 py-1 rounded-full text-sm">نظام التوليد الذكي v1.0</span>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto p-8">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-xl font-bold text-gray-800">الخدمات الإلكترونية المتاحة</h2>
+            <div class="flex items-center gap-2 text-gray-500" id="status-area">
+                <div class="loader"></div>
+                <p id="service-count">جاري الاتصال بالخادم...</p>
+            </div>
+        </div>
+
+        <div id="services-container" class="services-scroll grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[70vh] overflow-y-auto p-2">
+            </div>
+    </main>
+
+    <script>
+        // *** التعديل الجوهري هنا: تحديد عنوان الباك اند ***
+        const BACKEND_URL = "http://127.0.0.1:8000";
+
+        async function loadDashboard() {
+            try {
+                // طلب البيانات من المنفذ 8000
+                const response = await fetch(`${BACKEND_URL}/api/system/services`);
+
+                if (!response.ok) throw new Error("Backend not responding");
+
+                const services = await response.json();
+
+                document.getElementById('status-area').innerHTML = `
+                    <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-sm font-bold">
+                        ${services.length} خدمة مفعلة
+                    </span>
+                `;
+
+                const container = document.getElementById('services-container');
+
+                if (services.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-span-full text-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+                            <i data-lucide="package-search" class="mx-auto text-gray-300 mb-4" size="48"></i>
+                            <p class="text-gray-400">لا يوجد خدمات مولدة في مجلد generated_services حالياً</p>
+                        </div>`;
+                    lucide.createIcons();
+                    return;
+                }
+
+                container.innerHTML = services.map(service => `
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all group">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="bg-blue-50 p-3 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <i data-lucide="file-text"></i>
+                            </div>
+                            <span class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">متصل</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-2">${service.name}</h3>
+                        <p class="text-sm text-gray-500 mb-6">خدمة حكومية ذكية جاهزة للمعالجة الفورية.</p>
+
+                        <a href="${BACKEND_URL}${service.url}" target="_blank" class="flex items-center justify-center gap-2 w-full bg-blue-50 text-blue-900 font-bold py-3 rounded-xl border border-blue-100 hover:bg-blue-900 hover:text-white transition-all">
+                            تشغيل الخدمة
+                            <i data-lucide="play-circle" size="18"></i>
+                        </a>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                document.getElementById('status-area').innerHTML = `
+                    <span class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-sm font-bold">
+                        ❌ فشل الاتصال بالباك اند (Port 8000)
+                    </span>
+                `;
+                document.getElementById('services-container').innerHTML = `
+                    <div class="col-span-full text-center py-10">
+                        <p class="text-red-500 font-bold">تأكد من تشغيل ملف app/main.py أولاً!</p>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = loadDashboard;
+    </script>
+</body>
+</html>
