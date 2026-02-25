@@ -7,7 +7,7 @@ from agents.backend import backend_developer_agent
 from agents.frontend import frontend_developer_agent
 
 # --- المعلومات التي يجب تعبئتها يدوياً ---
-API_KEY = "AIzaSyDsypEf_rGmTqqBmP2D3Zm7l0b3l5xjHJo"  # ضع مفتاحك هنا
+API_KEY = "Your_Api_key"  # ضع مفتاحك هنا
 client = genai.Client(api_key=API_KEY)
 
 
