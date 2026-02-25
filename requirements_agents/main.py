@@ -9,7 +9,7 @@ print("نظام جمع متطلبات الخدمات الحكومية")
 print("=" * 60)
 
 # لا تضع المفتاح مباشرة في الكود في الإنتاج – استخدم متغيرات بيئية
-api_key = 'AIzaSyDsypEf_rGmTqqBmP2D3Zm7l0b3l5xjHJo'
+api_key = 'Your_Api_key'
 
 try:
     # المرحلة 1: جمع البيانات عبر المحادثة باستخدام ChatAgent الجديد
